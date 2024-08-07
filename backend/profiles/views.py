@@ -1,9 +1,16 @@
+# profiles/views.py
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .kafka_producer import send_to_kafka
 from django.core.cache import cache
 import time
+import threading
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class CheckCodeView(APIView):
     def get(self, request):
@@ -18,7 +25,9 @@ class CheckCodeView(APIView):
             'reader_name': reader_name,
         }
 
-        send_to_kafka('checkdata', check_data)
+        # Send data to Kafka
+        send_thread = threading.Thread(target=send_to_kafka, args=('checkdata', check_data))
+        send_thread.start()
 
         # Poll the cache for the response within a timeout period
         timeout = 3
@@ -27,6 +36,7 @@ class CheckCodeView(APIView):
 
         while elapsed_time < timeout:
             response_data = cache.get(f'qr_{qrcode}_status')
+            logger.info(f"Polling cache for QR Code: {qrcode}, Data: {response_data}")
             if response_data:
                 if response_data['status'] == 'success':
                     return Response({'message': response_data['message']}, status=status.HTTP_201_CREATED)

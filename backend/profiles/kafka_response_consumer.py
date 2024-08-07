@@ -1,7 +1,13 @@
+# profiles/kafka_response_consumer.py
+
 import json
 from kafka import KafkaConsumer
 import threading
 from django.core.cache import cache
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 KAFKA_BROKER = 'localhost:9092'
 KAFKA_RESPONSE_TOPIC = 'checkdata_response'
@@ -12,8 +18,11 @@ def process_response(message):
     status = data.get('status')
     message = data.get('message')
     
-    cache.set(f'qr_{qrcode}_status', {'status': status, 'message': message}, timeout=300)
-
+    cache_key = f'qr_{qrcode}_status'
+    cache_value = {'status': status, 'message': message}
+    cache.set(cache_key, cache_value, timeout=300)
+    
+    logger.info(f"Cache set for QR Code: {qrcode}, Key: {cache_key}, Value: {cache_value}")
 
 def consume_responses():
     consumer = KafkaConsumer(
