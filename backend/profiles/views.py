@@ -21,7 +21,7 @@ class CheckCodeView(APIView):
         send_to_kafka('checkdata', check_data)
 
         # Poll the cache for the response within a timeout period
-        timeout = 10
+        timeout = 3
         interval = 0.5
         elapsed_time = 0
 

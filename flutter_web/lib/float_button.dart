@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 class FloatingButtonWidget extends StatefulWidget {
-  const FloatingButtonWidget({super.key});
+  const FloatingButtonWidget({super.key, required this.onStop});
+
+  final VoidCallback onStop;
 
   @override
   FloatingButtonWidgetState createState() => FloatingButtonWidgetState();
@@ -39,6 +41,11 @@ class FloatingButtonWidgetState extends State<FloatingButtonWidget>
     super.dispose();
   }
 
+  void _navigateAndStop(String routeName) {
+    widget.onStop();
+    Navigator.pushNamed(context, routeName);
+  }
+
   Widget _buildFloatingButton(
       IconData icon, VoidCallback onPressed, String tag) {
     return Padding(
@@ -66,19 +73,22 @@ class FloatingButtonWidgetState extends State<FloatingButtonWidget>
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 _buildFloatingButton(Icons.home, () {
-                  Navigator.pushNamed(context, '/home');
+                  _navigateAndStop('/home');
                 }, 'home'),
                 _buildFloatingButton(Icons.qr_code_scanner, () {
-                  Navigator.pushNamed(context, '/scanner');
+                  _navigateAndStop('/scanner');
                 }, 'scanner'),
                 _buildFloatingButton(Icons.pageview, () {
                   // Navigate to Generic Page 1
+                  _navigateAndStop('/page1');
                 }, 'page1'),
                 _buildFloatingButton(Icons.pageview, () {
                   // Navigate to Generic Page 2
+                  _navigateAndStop('/page2');
                 }, 'page2'),
                 _buildFloatingButton(Icons.pageview, () {
                   // Navigate to Generic Page 3
+                  _navigateAndStop('/page3');
                 }, 'page3'),
               ],
             ),

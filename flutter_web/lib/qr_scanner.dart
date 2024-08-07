@@ -1,33 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:dio/dio.dart';
 import 'float_button.dart';
+import 'api_service.dart'; // Adjust the import according to your project structure
 
 const bgColor = Color(0xfffafafa);
-
-class ApiService {
-  final String baseUrl;
-  final Dio _dio;
-
-  ApiService(this.baseUrl) : _dio = Dio();
-
-  Future<bool> checkCodeExists(String qrcode, String readerName) async {
-    try {
-      final response = await _dio.get(
-        '$baseUrl/api/check-code/',
-        queryParameters: {
-          'qrcode': qrcode,
-          'reader_name': readerName,
-        },
-      );
-      return response.statusCode == 201; // Check for 200 Created
-    } catch (e) {
-      print('Error checking code: $e');
-      return false;
-    }
-  }
-}
 
 class QrScanner extends StatefulWidget {
   const QrScanner({super.key});
@@ -41,6 +18,8 @@ class _QrScannerState extends State<QrScanner> with WidgetsBindingObserver {
   StreamSubscription<Object?>? _subscription;
   final TextEditingController _readerNameController = TextEditingController();
   String? readerName;
+  bool isProcessing = false;
+  bool isDialogOpen = false;
 
   @override
   void initState() {
@@ -60,44 +39,41 @@ class _QrScannerState extends State<QrScanner> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
 
-    switch (state) {
-      case AppLifecycleState.detached:
-      case AppLifecycleState.hidden:
-      case AppLifecycleState.paused:
-        return;
-      case AppLifecycleState.resumed:
-        // Restart the scanner when the app is resumed.
-        // Don't forget to resume listening to the barcode events.
-        _subscription = controller.barcodes.listen(onQrCodeDetect);
-
-        unawaited(controller.start());
-      case AppLifecycleState.inactive:
-        // Stop the scanner when the app is paused.
-        // Also stop the barcode events subscription.
-        unawaited(_subscription?.cancel());
-        _subscription = null;
-        unawaited(controller.stop());
+    if (state == AppLifecycleState.resumed) {
+      startScanning();
+    } else if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      stopScanning();
     }
   }
 
   Future<void> startScanning() async {
-    await Future.delayed(const Duration(seconds: 1));
     await controller.start();
     _subscription = controller.barcodes.listen(onQrCodeDetect);
   }
 
+  Future<void> stopScanning() async {
+    await controller.stop();
+    await _subscription?.cancel();
+    _subscription = null;
+  }
+
   Future<void> onQrCodeDetect(BarcodeCapture barcodeCapture) async {
-    if (controller.value.isRunning) {
+    if (controller.value.isRunning && !isProcessing && !isDialogOpen) {
+      isProcessing = true; // Set the flag to indicate processing is ongoing
       try {
         final Barcode barcode = barcodeCapture.barcodes.first;
 
         if (barcode.format == BarcodeFormat.qrCode) {
-          controller.stop();
+          await stopScanning();
           await processBarcode(barcode);
         }
       } catch (error) {
         print('Error during QR code processing: $error');
-        controller.start();
+        await startScanning();
+      } finally {
+        isProcessing = false; // Reset the flag after processing
       }
     }
   }
@@ -126,11 +102,12 @@ class _QrScannerState extends State<QrScanner> with WidgetsBindingObserver {
         );
       }
     } else {
-      controller.start();
+      await startScanning();
     }
   }
 
   void _showErrorDialog(String message) {
+    isDialogOpen = true;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -151,8 +128,9 @@ class _QrScannerState extends State<QrScanner> with WidgetsBindingObserver {
             TextButton(
               child: const Text('OK'),
               onPressed: () {
+                isDialogOpen = false;
                 Navigator.of(dialogContext).pop();
-                controller.start();
+                startScanning();
               },
             ),
           ],
@@ -162,6 +140,7 @@ class _QrScannerState extends State<QrScanner> with WidgetsBindingObserver {
   }
 
   void _showResultDialog(String message, bool success) {
+    isDialogOpen = true;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -182,8 +161,9 @@ class _QrScannerState extends State<QrScanner> with WidgetsBindingObserver {
             TextButton(
               child: const Text('OK'),
               onPressed: () {
+                isDialogOpen = false;
                 Navigator.of(dialogContext).pop();
-                controller.start();
+                startScanning();
               },
             ),
           ],
@@ -195,9 +175,7 @@ class _QrScannerState extends State<QrScanner> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _subscription?.cancel();
-    _subscription = null;
-    controller.stop();
+    stopScanning();
     controller.dispose();
     _readerNameController.dispose();
     super.dispose();
@@ -325,7 +303,7 @@ class _QrScannerState extends State<QrScanner> with WidgetsBindingObserver {
           ),
         ),
       ),
-      floatingActionButton: const FloatingButtonWidget(),
+      floatingActionButton: FloatingButtonWidget(onStop: stopScanning),
     );
   }
 }

@@ -1,5 +1,3 @@
-# myapp/management/commands/consume_kafka.py
-
 import json
 import logging
 from kafka import KafkaConsumer, KafkaProducer
@@ -43,7 +41,7 @@ def connect_to_postgres():
 
 def handle_message(message, cursor, producer):
     try:
-        data = message.value  # Since the deserializer already converts it to a dict
+        data = message.value
         qrcode = data.get('qrcode')
         reader_name = data.get('reader_name')
 
@@ -56,7 +54,7 @@ def handle_message(message, cursor, producer):
 
         if tcc_record:
             cursor.execute(
-                "INSERT INTO public.check (qrcode, name, check_time, reader_name) VALUES (%s, %s, NOW(), %s)",
+                "INSERT INTO public.check (qrcode, name, check_time, reader_name) VALUES (%s, %s, NOW(), %s) ON CONFLICT DO NOTHING",
                 (qrcode, tcc_record['name'], reader_name)
             )
             response_data = {
@@ -73,20 +71,21 @@ def handle_message(message, cursor, producer):
             }
             logger.error("QR Code does not exist: %s", qrcode)
 
-        # Update the cache with the response
         cache.set(f'qr_{qrcode}_status', response_data, timeout=60)
-
         producer.send(KAFKA_PRODUCE_TOPIC, response_data)
-       
-
     except Exception as e:
         logger.error(f"Error handling message: {e}")
 
+        
 def consume_messages():
     consumer = KafkaConsumer(
         KAFKA_CONSUME_TOPIC,
         bootstrap_servers=KAFKA_BROKER,
-        value_deserializer=lambda m: json.loads(m.decode('utf-8'))
+        value_deserializer=lambda m: json.loads(m.decode('utf-8')),
+        group_id='django-consumer-group',
+        auto_offset_reset='earliest',
+        enable_auto_commit=True,
+        auto_commit_interval_ms=100
     )
 
     producer = KafkaProducer(
@@ -102,6 +101,7 @@ def consume_messages():
 
     try:
         for message in consumer:
+            logger.info(f"Received message: {message.value}")
             handle_message(message, cursor, producer)
             connection.commit()
     except Exception as e:

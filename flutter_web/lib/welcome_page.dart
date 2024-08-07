@@ -4,6 +4,11 @@ import 'float_button.dart';
 class WelcomePage extends StatelessWidget {
   const WelcomePage({super.key});
 
+  void _onStop() {
+    // Implement any required functionality here for stopping background processes
+    print("Stopping background processes");
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -29,7 +34,7 @@ class WelcomePage extends StatelessWidget {
           ],
         ),
       ),
-      floatingActionButton: const FloatingButtonWidget(),
+      floatingActionButton: FloatingButtonWidget(onStop: _onStop),
     );
   }
 }

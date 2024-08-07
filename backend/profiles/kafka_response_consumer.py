@@ -14,12 +14,16 @@ def process_response(message):
     
     cache.set(f'qr_{qrcode}_status', {'status': status, 'message': message}, timeout=300)
 
+
 def consume_responses():
     consumer = KafkaConsumer(
         KAFKA_RESPONSE_TOPIC,
         bootstrap_servers=KAFKA_BROKER,
-        group_id='django-consumer-group',
-        value_deserializer=lambda m: json.loads(m.decode('utf-8'))
+        group_id='django-response-consumer-group',
+        value_deserializer=lambda m: json.loads(m.decode('utf-8')),
+        auto_offset_reset='earliest',
+        enable_auto_commit=True,
+        auto_commit_interval_ms=100
     )
 
     for message in consumer:
