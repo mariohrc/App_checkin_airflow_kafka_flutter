@@ -1,5 +1,3 @@
-# profiles/kafka_response_consumer.py
-
 import json
 from kafka import KafkaConsumer
 import threading
@@ -20,8 +18,9 @@ def process_response(message):
     
     cache_key = f'qr_{qrcode}_status'
     cache_value = {'status': status, 'message': message}
-    cache.set(cache_key, cache_value, timeout=300)
     
+    # Set cache with a detailed log
+    cache.set(cache_key, cache_value, timeout=300)
     logger.info(f"Cache set for QR Code: {qrcode}, Key: {cache_key}, Value: {cache_value}")
 
 def consume_responses():

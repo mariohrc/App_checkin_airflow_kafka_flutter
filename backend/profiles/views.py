@@ -1,5 +1,3 @@
-# profiles/views.py
-
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -33,6 +31,7 @@ class CheckCodeView(APIView):
         timeout = 3
         interval = 0.5
         elapsed_time = 0
+
 
         while elapsed_time < timeout:
             response_data = cache.get(f'qr_{qrcode}_status')
