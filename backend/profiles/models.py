@@ -23,3 +23,12 @@ class Check(models.Model):
 
     class Meta:
         db_table = 'check'
+
+class QrCodeLog(models.Model):
+    qrcode = models.CharField(max_length=255)
+    status = models.CharField(max_length=50)
+    message = models.TextField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.qrcode} - {self.status}"

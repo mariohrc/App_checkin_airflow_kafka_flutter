@@ -2,6 +2,10 @@ import json
 from kafka import KafkaConsumer
 import threading
 from django.core.cache import cache
+from elasticsearch import Elasticsearch
+from datetime import datetime
+from .models import QrCodeLog
+from .documents import QrCodeLogDocument
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -9,19 +13,30 @@ logger = logging.getLogger(__name__)
 
 KAFKA_BROKER = 'localhost:9092'
 KAFKA_RESPONSE_TOPIC = 'checkdata_response'
+es = Elasticsearch([{'host': 'localhost', 'port': 9200}])
 
 def process_response(message):
     data = json.loads(message.value.decode('utf-8'))
     qrcode = data.get('qrcode')
     status = data.get('status')
-    message = data.get('message')
+    message_text = data.get('message')
     
     cache_key = f'qr_{qrcode}_status'
-    cache_value = {'status': status, 'message': message}
+    cache_value = {'status': status, 'message': message_text}
     
     # Set cache with a detailed log
     cache.set(cache_key, cache_value, timeout=300)
     logger.info(f"Cache set for QR Code: {qrcode}, Key: {cache_key}, Value: {cache_value}")
+
+    # Index the data in Elasticsearch
+    qr_code_log = QrCodeLog(
+        qrcode=qrcode,
+        status=status,
+        message=message_text,
+        timestamp=datetime.now()
+    )
+    qr_code_log.save()
+    QrCodeLogDocument().update(qr_code_log)
 
 def consume_responses():
     consumer = KafkaConsumer(
